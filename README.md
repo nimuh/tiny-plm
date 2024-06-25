@@ -1,2 +1,3 @@
 # tiny-plm
-A small protein language model
+
+small protein language models
