@@ -7,4 +7,4 @@ class PLMConfig:
     vocab_size: int = 20
     n_layer: int = 6
     n_head: int = 6
-    n_embed: int = 128
+    n_embed: int = 256

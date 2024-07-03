@@ -1,4 +1,4 @@
-from config import PLMConfig
+from tiny_plm.config import PLMConfig
 from torch import nn
 import torch.nn.functional as F
 import math
@@ -24,6 +24,7 @@ class SelfAttention(nn.Module):
 
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         att = F.softmax(att, dim=-1)
+        
         y = att @ v
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         y = self.c_proj(y)
