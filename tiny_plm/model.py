@@ -4,6 +4,11 @@ import torch.nn.functional as F
 import math
 
 
+# TODO
+# build encoder for PEPTIDE <SEP> MHC_SEQ -> binding affinity
+# build out dataset class for data feeding
+# build tokenizer (simple amino acid conversion)
+
 class SelfAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -73,4 +78,6 @@ class PLM(nn.Module):
             )
         )
 
+        # TODO
+        # change to regression head
         self.lm_head = nn.Linear(config.n_embed, config.vocab_size, bias=False)
