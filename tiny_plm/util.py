@@ -24,13 +24,23 @@ class ProteinTokenizer():
         self.AA_to_idx['W'] = 17
         self.AA_to_idx['Y'] = 18
         self.AA_to_idx['V'] = 19
+        self.AA_to_idx['<MASK>'] = 20
+        self.AA_to_idx['<PAD>'] = 21
 
         self.idx_to_AA = {v: k for k, v in self.AA_to_idx.items()}
-        
-    def encode(self, seq):
-        tokenized = [self.AA_to_idx[s] for s in seq]
+
+    def encode(self, seq, mask_frac=0.15):
+        mask_choice = torch.randn((1,len(seq))) < mask_frac
+        masked_seq = ['<MASK>' if mask_choice[0][i] else seq[i] for i in range(len(seq))]
+        tokenized = [self.AA_to_idx[s] for s in masked_seq]
         return torch.tensor(tokenized)
     
     def decode(self, int_seq):
         aa_seq = [self.idx_to_AA[idx] for idx in int_seq.tolist()]
-        return ''.join(aa_seq)
+        return aa_seq
+    
+
+def protein_batch_create(length_of_data, batch_size=8):
+    sampler = torch.utils.data.RandomSampler(range(length_of_data))
+    batch_idxs = list(torch.utils.data.BatchSampler(sampler, batch_size=batch_size, drop_last=False))
+    return batch_idxs
