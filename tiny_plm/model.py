@@ -72,12 +72,16 @@ class PLM(nn.Module):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.vocab_size, config.n_embed),
-                wpe=nn.Embedding(config.block_size, config.n_embed),
+                #wpe=nn.Embedding(config.block_size, config.n_embed),
                 h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
                 ln_f=nn.LayerNorm(config.n_embed),
             )
         )
-
-        # TODO
-        # change to regression head
         self.lm_head = nn.Linear(config.n_embed, config.vocab_size, bias=False)
+
+    def forward(self, x):
+        x = self.transformer['wte'](x)
+        for module in self.transformer['h']:
+            x = module(x)
+        x = self.lm_head(x)
+        return x
