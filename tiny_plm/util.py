@@ -46,4 +46,11 @@ def protein_batch_create(length_of_data, batch_size=8):
     batch_idxs = list(torch.utils.data.BatchSampler(sampler, batch_size=batch_size, drop_last=False))
     return batch_idxs
 
+def pad_batch(tok_seqs, labels, max_size, pad_value=21):
+    padded = [torch.cat([item, torch.tensor([pad_value]).expand(max_size-len(item))]) for item in tok_seqs]
+    batch_padded = torch.cat([item[None] for item in padded])
+    padded_label = [torch.cat([item, torch.tensor([pad_value]).expand(max_size-len(item))]) for item in labels]
+    batch_padded_label = torch.cat([item[None] for item in padded_label])
+    return batch_padded, batch_padded_label
+
 

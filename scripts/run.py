@@ -1,12 +1,14 @@
 from tiny_plm.model import PLM
 from tiny_plm.config import PLMConfig
-from tiny_plm.util import ProteinTokenizer, protein_batch_create
+from tiny_plm.util import ProteinTokenizer, protein_batch_create, pad_batch
 import pandas as pd
 import torch
 
 
 # TODO
 # add cmd args to this script
+# add batch_padding function to clean up training loop
+# write some decoding function for trained model to see what the model is predicting (curious)
 
 DATA = '../data/all_peptides.csv'
 epochs = 500
@@ -33,16 +35,13 @@ for epoch in range(epochs):
             tok_seqs.append(tok_masked)
             labels.append(label)
 
-        padded = [torch.cat([item, torch.tensor([padded_value]).expand(max_size-len(item))]) for item in tok_seqs]
-        batch_padded = torch.cat([item[None] for item in padded])
-
-        padded_label = [torch.cat([item, torch.tensor([padded_value]).expand(max_size-len(item))]) for item in labels]
-        batch_padded_label = torch.cat([item[None] for item in padded_label])
+        batch_padded, batch_padded_label = pad_batch(tok_seqs, labels, max_size)
 
         y = model(batch_padded)
         pred = y.view(y.size(0)*y.size(1), -1)
         targets = batch_padded_label.view(batch_padded_label.size(0)*batch_padded_label.size(1))
         loss = torch.nn.functional.cross_entropy(pred, targets, ignore_index=21)
+
         loss.backward()
         opt.step()
         opt.zero_grad()
