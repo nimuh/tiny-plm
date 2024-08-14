@@ -1,13 +1,13 @@
 from tiny_plm.config import PLMConfig
-from torch import nn
+from torch import nn, arange
 import torch.nn.functional as F
 import math
+import torch
 
 
 # TODO
 # build encoder for PEPTIDE <SEP> MHC_SEQ -> binding affinity
-# build out dataset class for data feeding
-# build tokenizer (simple amino acid conversion)
+# build decoder for KO -> PROTEIN generation
 
 class SelfAttention(nn.Module):
     def __init__(self, config):
@@ -27,10 +27,12 @@ class SelfAttention(nn.Module):
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
 
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = F.softmax(att, dim=-1)
+        #att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        #att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
+        #att = F.softmax(att, dim=-1)
         
-        y = att @ v
+        #y = att @ v
+        y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         y = self.c_proj(y)
         return y
@@ -63,7 +65,8 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
-
+# TODO
+# add RoPE for wpe
 class PLM(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -72,16 +75,31 @@ class PLM(nn.Module):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.vocab_size, config.n_embed),
-                #wpe=nn.Embedding(config.block_size, config.n_embed),
+                wpe=nn.Embedding(config.block_size, config.n_embed),
                 h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
                 ln_f=nn.LayerNorm(config.n_embed),
             )
         )
         self.lm_head = nn.Linear(config.n_embed, config.vocab_size, bias=False)
 
-    def forward(self, x):
-        x = self.transformer['wte'](x)
-        for module in self.transformer['h']:
-            x = module(x)
-        x = self.lm_head(x)
-        return x
+    def forward(self, idx):
+        B, T = idx.size()
+        assert T <= self.config.block_size
+        pos = arange(0, T, dtype=torch.long, device=idx.device)
+        pos_emb = self.transformer.wpe(pos)
+        tok_emb = self.transformer.wte(idx)
+        x = pos_emb + tok_emb
+
+        for block in self.transformer.h:
+            x = block(x)
+        x = self.transformer.ln_f(x)
+        logits = self.lm_head(x)
+        return logits
+
+        #x = self.transformer['wte'](x)
+        #for module in self.transformer['h']:
+        #    x = module(x)
+        #x = self.lm_head(x)
+        #return x
+
+
