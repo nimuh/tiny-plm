@@ -8,6 +8,7 @@ import torch
 # TODO
 # build encoder for PEPTIDE <SEP> MHC_SEQ -> binding affinity
 # build decoder for KO -> PROTEIN generation
+    # convert tokenizer to include KO IDs
 
 class SelfAttention(nn.Module):
     def __init__(self, config):
