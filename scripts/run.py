@@ -1,6 +1,6 @@
 from tiny_plm.model import PLM
 from tiny_plm.config import PLMConfig
-from tiny_plm.util import ProteinTokenizer, protein_batch_create, pad_batch
+from tiny_plm.util import ProteinTokenizer, create_protein_batches
 import pandas as pd
 import torch
 
@@ -8,63 +8,45 @@ import torch
 # TODO
 # add cmd args to this script
 # write some decoding function for trained model to see what the model is predicting (curious)
-# idea: play with higher masking rates and test on kegg dataset, maybe high masking rates could 
+# idea: play with higher masking rates and test on kegg dataset, maybe high masking rates could
 # help with better generalization?
 
-DATA = '../data/all_peptides.csv'
+DATA = "data/test_set_at_10_idx_conserved.csv"
 M_RATIO = 0.50
 epochs = 50
 
+# Load and prepare data
 df_seqs = pd.read_csv(DATA, nrows=100)
-batch_idxs = protein_batch_create(df_seqs.shape[0])
+batch_idxs = create_protein_batches(df_seqs.shape[0])
 
-config = PLMConfig(n_head=8, n_layer=2, vocab_size=22)
+# Initialize model and tokenizer
+config = PLMConfig(n_head=8, n_layer=2, vocab_size=len(set(df_seqs.KO)) + 20)
 model = PLM(config=config)
+tokenizer = ProteinTokenizer(kegg_df=df_seqs)
 
-tokenizer = ProteinTokenizer()
-padded_value = 21
-toks, _ = tokenizer.encode("L", mask_frac=0.0)
+def generate_sequence(model, initial_tokens, max_length):
+    with torch.no_grad():
+        while initial_tokens.size(1) < max_length:
+            logits = model(initial_tokens)
+            next_token_logits = logits[:, -1, :]
+            next_token_probs = torch.nn.functional.softmax(next_token_logits, dim=-1)
+            top_k = 10
+            top_k_probs, top_k_indices = torch.topk(next_token_probs, top_k, dim=-1)
+            next_token = torch.multinomial(top_k_probs, 1)
+            next_token = torch.gather(top_k_indices, -1, next_token)
+            initial_tokens = torch.cat((initial_tokens, next_token), dim=1)
+    return initial_tokens
+
+# Encode initial sequence
+initial_sequence = "K14331"
+toks = tokenizer.encode(initial_sequence) #, mask_frac=0.0)
 toks = toks.unsqueeze(dim=0)
 
-print(toks)
-while toks.size(1) < 50:
-    with torch.no_grad():
-        logits = model(toks)
-        logits = logits[:, -1, :]
-        probs = torch.nn.functional.softmax(logits, dim=-1)
-        topk_probs, topk_indices = torch.topk(probs, 10, dim=-1)
-        ix = torch.multinomial(topk_probs, 1)
-        xcol = torch.gather(topk_indices, -1, ix)
-        toks = torch.cat((toks, xcol), dim=1)
-print(toks)
-print(''.join(tokenizer.decode(toks[0])))
+# Generate sequence
+max_length = 50
+generated_sequence = generate_sequence(model, toks, max_length)
 
-
-#opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
-
-
-"""
-for epoch in range(epochs):
-    for batch in batch_idxs:
-        seqs = df_seqs.iloc[batch].sequence
-        max_size = max([len(seq) for seq in seqs])
-        tok_seqs = []
-        labels = []
-
-        for seq in seqs:
-            tok_masked, label = tokenizer.encode(seq, mask_frac=M_RATIO)
-            tok_seqs.append(tok_masked)
-            labels.append(label)
-
-        batch_padded, batch_padded_label = pad_batch(tok_seqs, labels, max_size)
-
-        y = model(batch_padded)
-        pred = y.view(y.size(0)*y.size(1), -1)
-        targets = batch_padded_label.view(batch_padded_label.size(0)*batch_padded_label.size(1))
-        loss = torch.nn.functional.cross_entropy(pred, targets, ignore_index=21)
-
-        loss.backward()
-        opt.step()
-        opt.zero_grad()
-        print(f"Perplexity: {torch.exp(loss)}  CE Loss: {loss}")
-"""
+# Decode and print results
+gen_seq = tokenizer.decode(generated_sequence[0])
+print(f"Initial sequence: {initial_sequence}")
+print(f"Generated sequence: {gen_seq}")

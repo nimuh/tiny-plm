@@ -8,7 +8,8 @@ import torch
 # TODO
 # build encoder for PEPTIDE <SEP> MHC_SEQ -> binding affinity
 # build decoder for KO -> PROTEIN generation
-    # convert tokenizer to include KO IDs
+# convert tokenizer to include KO IDs
+
 
 class SelfAttention(nn.Module):
     def __init__(self, config):
@@ -28,11 +29,11 @@ class SelfAttention(nn.Module):
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
 
-        #att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        #att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
-        #att = F.softmax(att, dim=-1)
-        
-        #y = att @ v
+        # att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        # att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
+        # att = F.softmax(att, dim=-1)
+
+        # y = att @ v
         y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         y = self.c_proj(y)
@@ -66,6 +67,7 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
+
 # TODO
 # add RoPE for wpe
 class PLM(nn.Module):
@@ -97,10 +99,8 @@ class PLM(nn.Module):
         logits = self.lm_head(x)
         return logits
 
-        #x = self.transformer['wte'](x)
-        #for module in self.transformer['h']:
+        # x = self.transformer['wte'](x)
+        # for module in self.transformer['h']:
         #    x = module(x)
-        #x = self.lm_head(x)
-        #return x
-
-
+        # x = self.lm_head(x)
+        # return x
