@@ -24,6 +24,7 @@ config = PLMConfig(n_head=8, n_layer=2, vocab_size=len(set(df_seqs.KO)) + 20)
 model = PLM(config=config)
 tokenizer = ProteinTokenizer(kegg_df=df_seqs)
 
+
 def generate_sequence(model, initial_tokens, max_length):
     with torch.no_grad():
         while initial_tokens.size(1) < max_length:
@@ -37,9 +38,10 @@ def generate_sequence(model, initial_tokens, max_length):
             initial_tokens = torch.cat((initial_tokens, next_token), dim=1)
     return initial_tokens
 
+
 # Encode initial sequence
 initial_sequence = "K14331"
-toks = tokenizer.encode(initial_sequence) #, mask_frac=0.0)
+toks = tokenizer.encode(initial_sequence)  # , mask_frac=0.0)
 toks = toks.unsqueeze(dim=0)
 
 # Generate sequence

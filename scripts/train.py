@@ -19,60 +19,59 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 
-def mask_sequence(seq, mask_ratio):
-    mask = torch.rand(seq.shape) < mask_ratio
-    masked_seq = seq.clone()
-    masked_seq[mask] = tokenizer.AA_to_idx["<MASK>"]
-    return masked_seq, mask
-
 def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
     model.train()
     total_loss = 0
 
     # Add tqdm progress bar
     from tqdm import tqdm
+
     progress_bar = tqdm(batch_idxs, desc="Training", leave=False)
 
     for batch in progress_bar:
         optimizer.zero_grad()
-        
+
         # Prepare batch
         ko_ids = df_seqs.iloc[batch].KO.tolist()
         aa_seqs = df_seqs.iloc[batch].sequence.tolist()
-        
+
         # Tokenize KO IDs and amino acid sequences
         tokenized_ko = [tokenizer.encode(ko, is_ko=True) for ko in ko_ids]
         tokenized_aa = [tokenizer.encode(aa) for aa in aa_seqs]
-        #print(tokenized_aa)
-        
+        # print(tokenized_aa)
+
         # Combine KO ID (as prompt) with amino acid sequence
-        combined_seqs = [torch.cat([ko, aa]) for ko, aa in zip(tokenized_ko, tokenized_aa)]
-        
+        combined_seqs = [
+            torch.cat([ko, aa]) for ko, aa in zip(tokenized_ko, tokenized_aa)
+        ]
+
         # Pad sequences
-        padded_seqs, _ = pad_batch(combined_seqs, combined_seqs, max(len(seq) for seq in combined_seqs))
-        
+        padded_seqs, _ = pad_batch(
+            combined_seqs, combined_seqs, max(len(seq) for seq in combined_seqs)
+        )
+
         # Prepare input (KO ID + masked AA) and target (full sequence)
         input_seqs = padded_seqs.clone()
         target_seqs = padded_seqs.clone()
-        
+
         # Prepare input for causal language modeling
         input_seqs = padded_seqs[:, :-1]  # Use all tokens except the last one as input
         target_seqs = padded_seqs[:, 1:]  # Use all tokens except the first one as target
-        
+
         # Forward pass
         logits = model(input_seqs.to(device))
-        
+
         # Calculate loss (ignore KO ID tokens in loss computation)
         loss = 0
         for i, (logit, target) in enumerate(zip(logits, target_seqs)):
             ko_length = len(tokenized_ko[i])
             loss += criterion(logit[ko_length:], target[ko_length:].to(device))
         loss /= len(batch)
-        
+
         # Backward pass and optimize
         loss.backward()
         optimizer.step()
-        
+
         total_loss += loss.item()
 
         # Update progress bar
@@ -80,9 +79,12 @@ def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
 
     return total_loss / len(batch_idxs)
 
+
 # Generate example sequence
 # TODO: Add topk to generate_sequence for more diverse outputs
-def generate_sequence(initial_ko, config, tokenizer, model_path, model=None, max_length=50):
+def generate_sequence(
+    initial_ko, config, tokenizer, model_path, model=None, max_length=50
+):
     if model_path:
         trained_model = PLM(config=config)
         trained_model.load_state_dict(torch.load(model_path))
@@ -102,7 +104,7 @@ def main():
     # Load and prepare data
     df_seqs = pd.read_csv(DATA_PATH)
     # Filter df_seqs to only contain samples with sequences that are less than 1024 in length
-    df_seqs = df_seqs[df_seqs['sequence'].str.len() < 1024].reset_index(drop=True)
+    df_seqs = df_seqs[df_seqs["sequence"].str.len() < 1024].reset_index(drop=True)
 
     batch_idxs = create_protein_batches(df_seqs.shape[0], batch_size=BATCH_SIZE)
 
@@ -117,7 +119,7 @@ def main():
     model.to(device)
 
     if TRAIN:
-    # Training loop
+        # Training loop
         for epoch in range(EPOCHS):
             loss = train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs)
             print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {loss:.4f}")
@@ -126,10 +128,11 @@ def main():
 
     # Example usage
     initial_ko = "K14331"
-    generated_seq = generate_sequence(initial_ko, config, tokenizer, model_path="trained_plm_model.pth") #, model=model)
+    generated_seq = generate_sequence(
+        initial_ko, config, tokenizer, model_path="trained_plm_model.pth"
+    )  # , model=model)
     print(f"Generated sequence for {initial_ko}: {generated_seq}")
+
 
 if __name__ == "__main__":
     main()
-
-
