@@ -13,7 +13,7 @@ BATCH_SIZE = 8
 LEARNING_RATE = 1e-4
 DATA_PATH = "data/test_set_at_10_idx_conserved.csv"
 MASK_RATIO = 0.15
-TRAIN = False
+TRAIN = True
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -64,8 +64,8 @@ def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
         # Calculate loss (ignore KO ID tokens in loss computation)
         loss = 0
         for i, (logit, target) in enumerate(zip(logits, target_seqs)):
-            ko_length = len(tokenized_ko[i])
-            loss += criterion(logit[ko_length:], target[ko_length:].to(device))
+            #ko_length = len(tokenized_ko[i])
+            loss += criterion(logit, target.to(device))
         loss /= len(batch)
 
         # Backward pass and optimize
@@ -83,7 +83,7 @@ def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
 # Generate example sequence
 # TODO: Add topk to generate_sequence for more diverse outputs
 def generate_sequence(
-    initial_ko, config, tokenizer, model_path, model=None, max_length=50
+    initial_ko, config, tokenizer, model_path, model=None, max_length=300
 ):
     if model_path:
         trained_model = PLM(config=config)
@@ -93,8 +93,10 @@ def generate_sequence(
         trained_model = model
     with torch.no_grad():
         initial_tokens = tokenizer.encode(initial_ko).unsqueeze(0).to(device)
-        for _ in range(max_length - 1):
+        print(initial_tokens)
+        for _ in range(max_length):
             logits = trained_model(initial_tokens)
+            print(logits.shape)
             next_token = torch.argmax(logits[:, -1, :], dim=-1).unsqueeze(1)
             initial_tokens = torch.cat([initial_tokens, next_token], dim=1)
     return tokenizer.decode(initial_tokens[0][6:])

@@ -5,10 +5,6 @@ import math
 import torch
 
 
-# TODO
-# build encoder for PEPTIDE <SEP> MHC_SEQ -> binding affinity
-# build decoder for KO -> PROTEIN generation
-# convert tokenizer to include KO IDs
 
 
 class SelfAttention(nn.Module):
@@ -87,11 +83,9 @@ class PLM(nn.Module):
 
     def forward(self, idx):
         B, T = idx.size()
-        #print(f"B: {B}, T: {T}")
         assert T <= self.config.block_size
         pos = arange(0, T, dtype=torch.long, device=idx.device)
         pos_emb = self.transformer.wpe(pos)
-        #print(idx)
         tok_emb = self.transformer.wte(idx)
         x = pos_emb + tok_emb
 
@@ -100,9 +94,3 @@ class PLM(nn.Module):
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)
         return logits
-
-        # x = self.transformer['wte'](x)
-        # for module in self.transformer['h']:
-        #    x = module(x)
-        # x = self.lm_head(x)
-        # return x
