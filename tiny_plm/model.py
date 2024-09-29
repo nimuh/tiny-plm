@@ -87,9 +87,11 @@ class PLM(nn.Module):
 
     def forward(self, idx):
         B, T = idx.size()
+        #print(f"B: {B}, T: {T}")
         assert T <= self.config.block_size
         pos = arange(0, T, dtype=torch.long, device=idx.device)
         pos_emb = self.transformer.wpe(pos)
+        #print(idx)
         tok_emb = self.transformer.wte(idx)
         x = pos_emb + tok_emb
 

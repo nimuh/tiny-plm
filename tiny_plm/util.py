@@ -17,7 +17,7 @@ class ProteinTokenizer:
             self.AA_to_idx[ko_id] = start_idx + i
         
         # Add special tokens
-        special_tokens = ["<MASK>", "<PAD>"]
+        special_tokens = ["<MASK>", "<PAD>", "<UNK>"]
         start_idx += len(ko_ids)
         for i, token in enumerate(special_tokens):
             self.AA_to_idx[token] = start_idx + i
@@ -25,16 +25,22 @@ class ProteinTokenizer:
         # Create reverse mapping
         self.idx_to_AA = {v: k for k, v in self.AA_to_idx.items()}
 
-    def encode(self, seq):
+    def encode(self, seq, is_ko=False):
         #print(seq)
         #print(self.AA_to_idx)
-        tokenized = [self.AA_to_idx[seq]] # for aa in seq]
-        return torch.tensor(tokenized)
+        if is_ko:
+            tokenized = [self.AA_to_idx[seq]] # for aa in seq]
+            return torch.tensor(tokenized)
+        else:
+            try:
+                tokenized = [self.AA_to_idx.get(aa, self.AA_to_idx['<UNK>']) for aa in seq]
+            except KeyError:
+                print(seq)
+                raise KeyError
+            return torch.tensor(tokenized)
 
     def decode(self, int_seq):
         return ''.join(self.idx_to_AA[idx] for idx in int_seq.tolist())
-
-
 
 
 
