@@ -8,7 +8,7 @@ import pandas as pd
 import torch.nn.functional as F
 
 # Hyperparameters
-EPOCHS = 10
+EPOCHS = 30
 BATCH_SIZE = 8
 LEARNING_RATE = 1e-4
 DATA_PATH = "data/test_set_at_10_idx_conserved.csv"
@@ -140,7 +140,7 @@ def main():
     #)  # , model=model)
 
     generated_seq = generate_sequence(
-        initial_ko, config, tokenizer, max_length=100, model_path=f"trained_plm_model.pth"
+        initial_ko, config, tokenizer, max_length=100, model_path=f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth"
     )  
     print(f"Generated sequence for {initial_ko}: {generated_seq}")
 
