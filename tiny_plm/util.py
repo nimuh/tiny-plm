@@ -14,13 +14,13 @@ class ProteinTokenizer:
         ko_ids = kegg_df.KO.dropna().reset_index(drop=True).unique()
         start_idx = len(amino_acids) - 1
         for i, ko_id in enumerate(ko_ids):
-            self.AA_to_idx[ko_id] = start_idx + i
+            self.AA_to_idx[ko_id] = start_idx + i + 1
         
         # Add special tokens
         special_tokens = ["<MASK>", "<PAD>", "<UNK>"]
         start_idx += len(ko_ids)
         for i, token in enumerate(special_tokens):
-            self.AA_to_idx[token] = start_idx + i
+            self.AA_to_idx[token] = start_idx + i + 1
         
         # Create reverse mapping
         self.idx_to_AA = {v: k for k, v in self.AA_to_idx.items()}

@@ -8,12 +8,14 @@ import pandas as pd
 import torch.nn.functional as F
 
 # Hyperparameters
-EPOCHS = 30
+EPOCHS = 10
 BATCH_SIZE = 8
 LEARNING_RATE = 1e-4
 DATA_PATH = "data/test_set_at_10_idx_conserved.csv"
 MASK_RATIO = 0.15
 TRAIN = True
+NLAYER = 3
+NHEAD = 8
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -92,11 +94,10 @@ def generate_sequence(
     else:
         trained_model = model
     with torch.no_grad():
-        initial_tokens = tokenizer.encode(initial_ko).unsqueeze(0).to(device)
+        initial_tokens = tokenizer.encode(initial_ko, is_ko=True).unsqueeze(0).to(device)
         print(initial_tokens)
         for _ in range(max_length):
             logits = trained_model(initial_tokens)
-            print(logits.shape)
             next_token = torch.argmax(logits[:, -1, :], dim=-1).unsqueeze(1)
             initial_tokens = torch.cat([initial_tokens, next_token], dim=1)
     return tokenizer.decode(initial_tokens[0][6:])
@@ -111,11 +112,15 @@ def main():
     batch_idxs = create_protein_batches(df_seqs.shape[0], batch_size=BATCH_SIZE)
 
     # Initialize model, tokenizer, and optimizer
-    config = PLMConfig(n_head=8, n_layer=2, vocab_size=len(set(df_seqs.KO)) + 23)
+    config = PLMConfig(n_head=NHEAD, n_layer=NLAYER, vocab_size=len(set(df_seqs.KO)) + 23)
     model = PLM(config=config)
 
+    # Print total number of parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total number of parameters: {total_params:,}")
+
     tokenizer = ProteinTokenizer(kegg_df=df_seqs)
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.AA_to_idx["<PAD>"])
 
     model.to(device)
@@ -126,13 +131,17 @@ def main():
             loss = train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs)
             print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {loss:.4f}")
 
-        torch.save(model.state_dict(), "trained_plm_model.pth")
+        torch.save(model.state_dict(), f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth")
 
     # Example usage
     initial_ko = "K14331"
+    #generated_seq = generate_sequence(
+    #    initial_ko, config, tokenizer, max_length=100, model_path=f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth"
+    #)  # , model=model)
+
     generated_seq = generate_sequence(
-        initial_ko, config, tokenizer, model_path="trained_plm_model.pth"
-    )  # , model=model)
+        initial_ko, config, tokenizer, max_length=100, model_path=f"trained_plm_model.pth"
+    )  
     print(f"Generated sequence for {initial_ko}: {generated_seq}")
 
 
