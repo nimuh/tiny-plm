@@ -39,7 +39,7 @@ def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
 
         # Tokenize KO IDs and amino acid sequences
         tokenized_ko = [tokenizer.encode(ko, is_ko=True) for ko in ko_ids]
-        tokenized_aa = [tokenizer.encode(aa) for aa in aa_seqs]
+        tokenized_aa = [tokenizer.encode(aa) for aa in aa_seqs] + [tokenizer.encode("<EOS>")]
         # print(tokenized_aa)
 
         # Combine KO ID (as prompt) with amino acid sequence
@@ -84,6 +84,7 @@ def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
 
 # Generate example sequence
 # TODO: Add topk to generate_sequence for more diverse outputs
+# TODO: Add temperature to generate_sequence for more diverse outputs
 def generate_sequence(
     initial_ko, config, tokenizer, model_path, model=None, max_length=300
 ):
@@ -99,6 +100,8 @@ def generate_sequence(
         for _ in range(max_length):
             logits = trained_model(initial_tokens)
             next_token = torch.argmax(logits[:, -1, :], dim=-1).unsqueeze(1)
+            if next_token == tokenizer.AA_to_idx["<EOS>"]: 
+                break
             initial_tokens = torch.cat([initial_tokens, next_token], dim=1)
     return tokenizer.decode(initial_tokens[0][6:])
 

@@ -17,7 +17,7 @@ class ProteinTokenizer:
             self.AA_to_idx[ko_id] = start_idx + i + 1
         
         # Add special tokens
-        special_tokens = ["<MASK>", "<PAD>", "<UNK>"]
+        special_tokens = ["<MASK>", "<PAD>", "<UNK>", "<EOS>"]
         start_idx += len(ko_ids)
         for i, token in enumerate(special_tokens):
             self.AA_to_idx[token] = start_idx + i + 1
