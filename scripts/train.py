@@ -22,10 +22,9 @@ NHEAD = 8
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-
 def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
     model.train()
-    total_loss = 0    
+    total_loss = 0
 
     progress_bar = tqdm(batch_idxs, desc="Training", leave=False)
 
@@ -38,7 +37,9 @@ def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
 
         # Tokenize KO IDs and amino acid sequences
         tokenized_ko = [tokenizer.encode(ko, is_ko=True) for ko in ko_ids]
-        tokenized_aa = [tokenizer.encode(aa) for aa in aa_seqs] + [tokenizer.encode("<EOS>")]
+        tokenized_aa = [tokenizer.encode(aa) for aa in aa_seqs] + [
+            tokenizer.encode("<EOS>")
+        ]
         # print(tokenized_aa)
 
         # Combine KO ID (as prompt) with amino acid sequence
@@ -57,7 +58,9 @@ def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
 
         # Prepare input for causal language modeling
         input_seqs = padded_seqs[:, :-1]  # Use all tokens except the last one as input
-        target_seqs = padded_seqs[:, 1:]  # Use all tokens except the first one as target
+        target_seqs = padded_seqs[
+            :, 1:
+        ]  # Use all tokens except the first one as target
 
         # Forward pass
         logits = model(input_seqs.to(device))
@@ -65,7 +68,7 @@ def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
         # Calculate loss (ignore KO ID tokens in loss computation)
         loss = 0
         for i, (logit, target) in enumerate(zip(logits, target_seqs)):
-            #ko_length = len(tokenized_ko[i])
+            # ko_length = len(tokenized_ko[i])
             loss += criterion(logit, target.to(device))
         loss /= len(batch)
 
@@ -94,21 +97,24 @@ def generate_sequence(
     else:
         trained_model = model
     with torch.no_grad():
-        initial_tokens = tokenizer.encode(initial_ko, is_ko=True).unsqueeze(0).to(device)
+        initial_tokens = (
+            tokenizer.encode(initial_ko, is_ko=True).unsqueeze(0).to(device)
+        )
         for _ in range(max_length):
             logits = trained_model(initial_tokens)
             next_token = torch.argmax(logits[:, -1, :], dim=-1).unsqueeze(1)
-            if next_token == tokenizer.AA_to_idx["<EOS>"]: 
+            if next_token == tokenizer.AA_to_idx["<EOS>"]:
                 break
             initial_tokens = torch.cat([initial_tokens, next_token], dim=1)
     return tokenizer.decode(initial_tokens[0][6:])
 
 
-
-def generate_and_save_sequences(df, config, tokenizer, model_path, output_file, max_length=300):
+def generate_and_save_sequences(
+    df, config, tokenizer, model_path, output_file, max_length=300
+):
     """
     Generate sequences for each KO in the dataset and save them to a FASTA file.
-    
+
     Args:
     df (pd.DataFrame): DataFrame containing KO IDs.
     config (PLMConfig): Configuration for the model.
@@ -122,16 +128,23 @@ def generate_and_save_sequences(df, config, tokenizer, model_path, output_file, 
     model.eval()
     model.to(device)
 
-    with open(output_file, 'w') as f:
-        progress_bar = tqdm(df['KO'].unique(), desc="Generating sequences", unit="sequence")
+    with open(output_file, "w") as f:
+        progress_bar = tqdm(
+            df["KO"].unique(), desc="Generating sequences", unit="sequence"
+        )
         for ko in progress_bar:
-            generated_seq = generate_sequence(ko, config, tokenizer, model_path=None, model=model, max_length=max_length)
+            generated_seq = generate_sequence(
+                ko,
+                config,
+                tokenizer,
+                model_path=None,
+                model=model,
+                max_length=max_length,
+            )
             f.write(f">{ko}\n{generated_seq}\n")
             progress_bar.set_postfix({"KO": ko})
-    
+
     print(f"Generated sequences saved to {output_file}")
-
-
 
 
 def main():
@@ -143,7 +156,9 @@ def main():
     batch_idxs = create_protein_batches(df_seqs.shape[0], batch_size=BATCH_SIZE)
 
     # Initialize model, tokenizer, and optimizer
-    config = PLMConfig(n_head=NHEAD, n_layer=NLAYER, vocab_size=len(set(df_seqs.KO)) + 23) # might need to change this 
+    config = PLMConfig(
+        n_head=NHEAD, n_layer=NLAYER, vocab_size=len(set(df_seqs.KO)) + 23
+    )  # might need to change this
     model = PLM(config=config)
 
     # Print total number of parameters
@@ -162,13 +177,10 @@ def main():
             loss = train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs)
             print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {loss:.4f}")
 
-        torch.save(model.state_dict(), f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth")
-
-    # Example usage
-    initial_ko = "K14331"
-    #generated_seq = generate_sequence(
-    #    initial_ko, config, tokenizer, max_length=100, model_path=f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth"
-    #)  # , model=model)
+        torch.save(
+            model.state_dict(),
+            f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth",
+        )
 
     generate_and_save_sequences(
         df_seqs,
@@ -176,12 +188,8 @@ def main():
         tokenizer,
         f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth",
         "generated_sequences.fasta",
-        max_length=100
+        max_length=100,
     )
-    #generated_seq = generate_sequence(
-   #     initial_ko, config, tokenizer, max_length=100, model_path=f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth"
-    #)  
-    #print(f"Generated sequence for {initial_ko}: {generated_seq}")
 
 
 if __name__ == "__main__":
