@@ -6,6 +6,8 @@ from tiny_plm.config import PLMConfig
 from tiny_plm.util import ProteinTokenizer, create_protein_batches, pad_batch
 import pandas as pd
 import torch.nn.functional as F
+from tqdm import tqdm
+
 
 # Hyperparameters
 EPOCHS = 30
@@ -13,7 +15,7 @@ BATCH_SIZE = 8
 LEARNING_RATE = 1e-4
 DATA_PATH = "data/test_set_at_10_idx_conserved.csv"
 MASK_RATIO = 0.15
-TRAIN = True
+TRAIN = False
 NLAYER = 3
 NHEAD = 8
 
@@ -23,10 +25,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
     model.train()
-    total_loss = 0
-
-    # Add tqdm progress bar
-    from tqdm import tqdm
+    total_loss = 0    
 
     progress_bar = tqdm(batch_idxs, desc="Training", leave=False)
 
@@ -96,7 +95,6 @@ def generate_sequence(
         trained_model = model
     with torch.no_grad():
         initial_tokens = tokenizer.encode(initial_ko, is_ko=True).unsqueeze(0).to(device)
-        print(initial_tokens)
         for _ in range(max_length):
             logits = trained_model(initial_tokens)
             next_token = torch.argmax(logits[:, -1, :], dim=-1).unsqueeze(1)
@@ -104,6 +102,36 @@ def generate_sequence(
                 break
             initial_tokens = torch.cat([initial_tokens, next_token], dim=1)
     return tokenizer.decode(initial_tokens[0][6:])
+
+
+
+def generate_and_save_sequences(df, config, tokenizer, model_path, output_file, max_length=300):
+    """
+    Generate sequences for each KO in the dataset and save them to a FASTA file.
+    
+    Args:
+    df (pd.DataFrame): DataFrame containing KO IDs.
+    config (PLMConfig): Configuration for the model.
+    tokenizer (ProteinTokenizer): Tokenizer for encoding/decoding sequences.
+    model_path (str): Path to the trained model.
+    output_file (str): Path to save the output FASTA file.
+    max_length (int): Maximum length of generated sequences.
+    """
+    model = PLM(config=config)
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
+    model.to(device)
+
+    with open(output_file, 'w') as f:
+        progress_bar = tqdm(df['KO'].unique(), desc="Generating sequences", unit="sequence")
+        for ko in progress_bar:
+            generated_seq = generate_sequence(ko, config, tokenizer, model_path=None, model=model, max_length=max_length)
+            f.write(f">{ko}\n{generated_seq}\n")
+            progress_bar.set_postfix({"KO": ko})
+    
+    print(f"Generated sequences saved to {output_file}")
+
+
 
 
 def main():
@@ -115,7 +143,7 @@ def main():
     batch_idxs = create_protein_batches(df_seqs.shape[0], batch_size=BATCH_SIZE)
 
     # Initialize model, tokenizer, and optimizer
-    config = PLMConfig(n_head=NHEAD, n_layer=NLAYER, vocab_size=len(set(df_seqs.KO)) + 23)
+    config = PLMConfig(n_head=NHEAD, n_layer=NLAYER, vocab_size=len(set(df_seqs.KO)) + 23) # might need to change this 
     model = PLM(config=config)
 
     # Print total number of parameters
@@ -142,10 +170,18 @@ def main():
     #    initial_ko, config, tokenizer, max_length=100, model_path=f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth"
     #)  # , model=model)
 
-    generated_seq = generate_sequence(
-        initial_ko, config, tokenizer, max_length=100, model_path=f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth"
-    )  
-    print(f"Generated sequence for {initial_ko}: {generated_seq}")
+    generate_and_save_sequences(
+        df_seqs,
+        config,
+        tokenizer,
+        f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth",
+        "generated_sequences.fasta",
+        max_length=100
+    )
+    #generated_seq = generate_sequence(
+   #     initial_ko, config, tokenizer, max_length=100, model_path=f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth"
+    #)  
+    #print(f"Generated sequence for {initial_ko}: {generated_seq}")
 
 
 if __name__ == "__main__":
