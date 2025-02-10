@@ -40,15 +40,17 @@ def generate_sequence(model, initial_tokens, max_length):
 
 
 # Encode initial sequence
-initial_sequence = "K14331"
-toks = tokenizer.encode(initial_sequence)  # , mask_frac=0.0)
+initial_sequence = "K02910"
+toks = tokenizer.encode(initial_sequence, is_ko=True)  # , mask_frac=0.0)
 toks = toks.unsqueeze(dim=0)
+
+print(toks)
 
 # Generate sequence
 max_length = 50
 generated_sequence = generate_sequence(model, toks, max_length)
 
 # Decode and print results
-gen_seq = tokenizer.decode(generated_sequence[0])
+gen_seq = tokenizer.decode(generated_sequence[0][1:])
 print(f"Initial sequence: {initial_sequence}")
 print(f"Generated sequence: {gen_seq}")

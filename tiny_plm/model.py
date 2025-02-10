@@ -6,16 +6,6 @@ import torch
 
 
 
-# TODO implement differential attention here
-class DiffAttention(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        # Initialize any necessary attributes or layers here
-
-    def forward(self, x):
-        # Implement the forward pass
-        pass
-
 
 class SelfAttention(nn.Module):
     def __init__(self, config):

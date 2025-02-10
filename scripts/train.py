@@ -7,15 +7,17 @@ from tiny_plm.util import ProteinTokenizer, create_protein_batches, pad_batch
 import pandas as pd
 import torch.nn.functional as F
 from tqdm import tqdm
+import datasets
+import gget
 
 
 # Hyperparameters
-EPOCHS = 30
+EPOCHS = 100
 BATCH_SIZE = 8
 LEARNING_RATE = 1e-4
 DATA_PATH = "data/test_set_at_10_idx_conserved.csv"
 MASK_RATIO = 0.15
-TRAIN = False
+TRAIN = True
 NLAYER = 3
 NHEAD = 8
 
@@ -148,6 +150,15 @@ def generate_and_save_sequences(
 
 
 def main():
+
+    #ds = datasets.load_dataset('tattabio/OMG', streaming=True)['train']
+    #print(next(iter(ds)))
+    #print(gget.search(["115413"], "homo_sapiens"))
+
+    # scrape JGI/MGNify
+
+    
+    
     # Load and prepare data
     df_seqs = pd.read_csv(DATA_PATH)
     # Filter df_seqs to only contain samples with sequences that are less than 1024 in length
@@ -190,7 +201,7 @@ def main():
         "generated_sequences.fasta",
         max_length=100,
     )
-
+    
 
 if __name__ == "__main__":
     main()
