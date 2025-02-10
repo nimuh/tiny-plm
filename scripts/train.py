@@ -181,7 +181,7 @@ def main():
 
     # Initialize model, tokenizer, and optimizer
     config = PLMConfig(
-        n_head=NHEAD, n_layer=NLAYER, vocab_size=len(set(df_seqs.KO)) + 23
+        n_head=NHEAD, n_layer=NLAYER, vocab_size=len(set(df_seqs.KO)) + 24
     )  # might need to change this
     model = PLM(config=config)
 
@@ -208,7 +208,7 @@ def main():
                     model.state_dict(), 
                     f"trained_plm_model_prok_{NLAYER}layers_{NHEAD}heads_E{epoch+1}.pth"
                 )
-                
+
         torch.save(
             model.state_dict(),
             f"trained_plm_model_prok_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth",
