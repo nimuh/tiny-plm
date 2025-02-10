@@ -8,14 +8,15 @@ import pandas as pd
 import torch.nn.functional as F
 from tqdm import tqdm
 import datasets
-import gget
+import matplotlib.pyplot as plt
+
 
 
 # Hyperparameters
 EPOCHS = 100
 BATCH_SIZE = 8
 LEARNING_RATE = 1e-4
-DATA_PATH = "data/test_set_at_10_idx_conserved.csv"
+DATA_PATH = "data/train_set_at_10_idx_conserved.csv"
 MASK_RATIO = 0.15
 TRAIN = True
 NLAYER = 3
@@ -27,6 +28,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
     model.train()
     total_loss = 0
+    batch_losses = []
 
     progress_bar = tqdm(batch_idxs, desc="Training", leave=False)
 
@@ -78,12 +80,16 @@ def train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs):
         loss.backward()
         optimizer.step()
 
-        total_loss += loss.item()
+        batch_loss = loss.item()
+        total_loss += batch_loss
+        batch_losses.append(batch_loss)
 
         # Update progress bar
-        progress_bar.set_postfix({"Loss": f"{loss.item():.4f}"})
+        progress_bar.set_postfix({"Loss": f"{batch_loss:.4f}"})
 
-    return total_loss / len(batch_idxs)
+    
+
+    return total_loss / len(batch_idxs), batch_losses
 
 
 # Generate example sequence
@@ -148,6 +154,11 @@ def generate_and_save_sequences(
 
     print(f"Generated sequences saved to {output_file}")
 
+def print_dataset(df):
+    print("###########################################")
+    print(df)
+    print('###########################################')
+
 
 def main():
 
@@ -163,6 +174,8 @@ def main():
     df_seqs = pd.read_csv(DATA_PATH)
     # Filter df_seqs to only contain samples with sequences that are less than 1024 in length
     df_seqs = df_seqs[df_seqs["sequence"].str.len() < 1024].reset_index(drop=True)
+
+    print_dataset(df_seqs)
 
     batch_idxs = create_protein_batches(df_seqs.shape[0], batch_size=BATCH_SIZE)
 
@@ -182,16 +195,39 @@ def main():
 
     model.to(device)
 
+    epoch_batch_losses = []
     if TRAIN:
         # Training loop
         for epoch in range(EPOCHS):
-            loss = train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs)
+            loss, batch_losses = train(model, tokenizer, optimizer, criterion, batch_idxs, df_seqs)
+            epoch_batch_losses.extend(batch_losses)
             print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {loss:.4f}")
 
+            if (epoch + 1) % 20 == 0:
+                torch.save(
+                    model.state_dict(), 
+                    f"trained_plm_model_prok_{NLAYER}layers_{NHEAD}heads_E{epoch+1}.pth"
+                )
+                
         torch.save(
             model.state_dict(),
-            f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth",
+            f"trained_plm_model_prok_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth",
         )
+
+        # Plot batch losses with smoothing
+        plt.figure(figsize=(10, 5))
+        # Plot original values
+        plt.plot(batch_losses, alpha=0.3, label='Original')
+        # Plot smoothed values using moving average
+        window_size = 50
+        smoothed_losses = pd.Series(batch_losses).rolling(window=window_size, min_periods=1).mean()
+        plt.plot(smoothed_losses, linewidth=2, label='Smoothed')
+        plt.title(f'Batch Losses During Training - {NLAYER} layers {NHEAD} heads {EPOCHS} epochs')
+        plt.xlabel('Batch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.savefig('batch_losses.png')
+        plt.close()
 
     generate_and_save_sequences(
         df_seqs,
@@ -201,6 +237,7 @@ def main():
         "generated_sequences.fasta",
         max_length=100,
     )
+
     
 
 if __name__ == "__main__":
