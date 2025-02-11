@@ -13,13 +13,13 @@ import matplotlib.pyplot as plt
 
 
 # Hyperparameters
-EPOCHS = 100
-BATCH_SIZE = 8
+EPOCHS = 1
+BATCH_SIZE = 16
 LEARNING_RATE = 1e-4
 DATA_PATH = "data/train_set_at_10_idx_conserved.csv"
 MASK_RATIO = 0.15
 TRAIN = True
-NLAYER = 3
+NLAYER = 4
 NHEAD = 8
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -161,17 +161,9 @@ def print_dataset(df):
 
 
 def main():
-
-    #ds = datasets.load_dataset('tattabio/OMG', streaming=True)['train']
-    #print(next(iter(ds)))
-    #print(gget.search(["115413"], "homo_sapiens"))
-
-    # scrape JGI/MGNify
-
-    
     
     # Load and prepare data
-    df_seqs = pd.read_csv(DATA_PATH)
+    df_seqs = pd.read_csv(DATA_PATH, nrows=100)
     # Filter df_seqs to only contain samples with sequences that are less than 1024 in length
     df_seqs = df_seqs[df_seqs["sequence"].str.len() < 1024].reset_index(drop=True)
 
@@ -206,12 +198,12 @@ def main():
             if (epoch + 1) % 20 == 0:
                 torch.save(
                     model.state_dict(), 
-                    f"trained_plm_model_prok_{NLAYER}layers_{NHEAD}heads_E{epoch+1}.pth"
+                    f"models/trained_plm_model_prok_{NLAYER}layers_{NHEAD}heads_batch{BATCH_SIZE}_E{epoch+1}.pth"
                 )
 
         torch.save(
             model.state_dict(),
-            f"trained_plm_model_prok_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth",
+            f"models/trained_plm_model_prok_{NLAYER}layers_{NHEAD}heads_batch{BATCH_SIZE}_E{EPOCHS}.pth",
         )
 
         # Plot batch losses with smoothing
@@ -226,17 +218,17 @@ def main():
         plt.xlabel('Batch')
         plt.ylabel('Loss')
         plt.legend()
-        plt.savefig('batch_losses.png')
+        plt.savefig('results/batch_losses.png')
         plt.close()
-
-    generate_and_save_sequences(
-        df_seqs,
-        config,
-        tokenizer,
-        f"trained_plm_model_{NLAYER}layers_{NHEAD}heads_E{EPOCHS}.pth",
-        "generated_sequences.fasta",
-        max_length=100,
-    )
+    else:
+        generate_and_save_sequences(
+            df_seqs,
+            config,
+            tokenizer,
+            f"trained_plm_model_prok_{NLAYER}layers_{NHEAD}heads_batch{BATCH_SIZE}_E{EPOCHS}.pth",
+            f"fasta_files/generated_sequences_prok_{NLAYER}layers_{NHEAD}heads_batch{BATCH_SIZE}_E{EPOCHS}.fasta",
+            max_length=100,
+        )
 
     
 
