@@ -1,0 +1,11 @@
+
+* 02/10/25
+
+Trained basic initial model for 1 epoch on data/train_set_at_10_idx_conserved.csv. Seems to be promising for a conditional generative protein model for KEGG Orthology though the loss was still
+high after training (this plot got overwritten by accident). This model only had 3 layers with 8 attention heads with batch sizes of 8. Epoch loss average around 1.4 (MLM).
+
+
+* 02/11/25
+
+Currently training 4 layers with batch sizes of 32.
+
